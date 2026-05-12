@@ -4,7 +4,9 @@ __pycache__/
 .tmp/
 .idea/
 .venv/
-generated_tests/
+generated_tests/*
+!generated_tests/*.py
+generated_tests/test_google.py
 smoke_generated_tests/
 .env
 log.txt

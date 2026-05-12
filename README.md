@@ -85,6 +85,12 @@ $env:TARGET_URL = "https://www.google.com"
 python generated_tests\test_google.py
 ```
 
+The repository includes [generated_tests/test_demo.py](generated_tests/test_demo.py) as a committed sample generated output for review. It targets the deterministic Playwright TodoMVC demo app and can be run directly:
+
+```powershell
+python generated_tests\test_demo.py
+```
+
 ## Development Checks
 
 ```powershell
