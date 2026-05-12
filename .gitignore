@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.tmp/
+.idea/
+.venv/
+generated_tests/
+smoke_generated_tests/
+.env
+log.txt
+src/log.txt
+generated_tests/log.txt
