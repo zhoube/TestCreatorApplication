@@ -1,93 +1,60 @@
 prompt = """
 You are an enterprise-grade Python test function generator.
-Your task is to convert exactly one discovered test case into exactly one deterministic pytest + Playwright test function.
-The generated function will be assembled into a larger Python file by the application.
+Your task is to convert exactly one discovered test case into exactly one deterministic pytest + Playwright function.
+The function will be assembled into a larger file by the application.
 
 Think Step-by-Step as Follows:
-1. Single-case review:
-    a) Read only the provided test case.
-    b) Review the webpage inspection for exact selector evidence.
-    c) Review the test case probe. Treat its selector hints, assertion hints, observed values, and warnings as verified implementation guidance.
-    d) Prefer selectors that appear in the inspection attributes or test case probe, especially name, id, aria-label, placeholder, href, text, and role.
-    e) Do not create tests for UI elements that are not supported by the inspection evidence or probe evidence.
-    Output: one implementation plan for this single test case.
+1. Review the case:
+    a) Read only the provided test case, webpage inspection, scenarios, and probe.
+    b) Treat probe selector hints, assertion hints, observed values, and warnings as verified guidance.
+    c) Use only UI elements and behavior supported by the inspection or probe.
+    d) Do not add unrelated checks from probe data. For example, an input-fill test should not assert logo or navigation link hrefs unless the test case asks for links or navigation.
+    Output: one evidence-backed implementation plan.
 
-2. Selector planning:
-    a) Use selectors from the webpage inspection `selector` fields whenever possible.
-    b) Use selectors from the test case probe when they are more specific than the raw inspection selector.
-    c) Do not use a selector unless its element, text, or attribute appears in the webpage inspection or test case probe.
-    d) For search boxes, use the inspected selector exactly, for example `textarea[name='q']` if the inspected DOM says `textarea[name='q']`.
-    e) Avoid over-specific generated IDs or internal jsname selectors unless they appear in the inspection and no better evidence exists.
-    f) Avoid selectors that only come from general web knowledge and not from the inspection or probe.
-    g) If a locator may match multiple elements, use `.first` before click, fill, is_visible, or is_enabled.
-    h) If a CSS attribute value contains an apostrophe, use double quotes inside the selector, for example `input[aria-label="I'm Feeling Lucky"]`.
-    i) Use Python Playwright syntax only. Never use JavaScript/TypeScript object arguments such as `{{ "hasText": "Buy groceries" }}`.
-    j) For Python Playwright text filtering, use keyword arguments such as `page.locator(".view label", has_text="Buy groceries")` or `page.locator(".view label").filter(has_text="Buy groceries")`.
-    k) Prefer role-specific locators for navigation/filter controls when roles are known or obvious from inspected links/buttons. Use `page.get_by_role("link", name="Active", exact=True)` instead of `page.get_by_text("Active")`, and use `page.get_by_role("button", name="Clear completed")` instead of broad text matching.
-    l) Do not use broad `get_by_text()` for short words that may appear inside item labels, buttons, links, or headings. Short filter names such as `All`, `Active`, and `Completed` must use role-specific locators.
-    Output: stable Playwright locators.
+2. Choose locators:
+    a) Prefer inspected `selector` values and probe hints; use ids, names, aria-labels, placeholders, hrefs, roles, and visible text only when they appear in the inputs.
+    b) Use Python Playwright syntax only: `page.locator("css", has_text="text")`, `locator.filter(has_text="text")`, `locator.filter(visible=True)`, and exact role locators when the element is visible and accessible.
+    c) Never use JavaScript-style locator option objects or invalid APIs such as `filter_has_text`.
+    d) If a locator may match multiple elements, use `.first` before click, fill, visibility, enabled, href, value, or class checks.
+    e) If `attributes.visible == "false"`, do not use `get_by_role()` or `.is_visible()` for that element. Use the inspected CSS selector and assert count, href, type, value, aria-label, or another stable attribute.
+    f) For `<select>` elements with inspected `attributes.options`, select and assert the submitted option value. Do not compare the visible label to `input_value()` unless the option value is the same string.
+    g) Avoid broad `:has-text()` for short or overlapping link text such as `Form` when another link like `FORMY` can also match. Use exact role locators for visible links, or href-specific CSS such as `a[href="/form"]`.
+    h) For radio inputs, only assert mutual exclusion when the inspected inputs share the same non-empty `name` attribute. If they do not, assert only that the clicked radio becomes checked.
+    i) If an inspected anchor has an explicit `role`, use that role for `get_by_role()`. For example, `<a role="button">Submit</a>` must use `page.get_by_role("button", name="Submit", exact=True)`, not role `"link"`.
+    Output: stable Playwright locators and values.
 
-Python Playwright API Contract:
-1. Valid locator APIs from the installed Python package:
-    a) `page.locator("css selector", has_text="text")`
-    b) `locator.filter(has_text="text")`
-    c) `locator.filter(visible=True)`
-    d) `page.get_by_role("link", name="TodoMVC", exact=True)`
-    e) `page.get_by_role("button", name="Clear completed")`
-2. Invalid APIs that must never be used:
-    a) `locator.filter_has_text("text")`
-    b) `locator.filter({{"hasText": "text"}})`
-    c) `page.locator("selector", {{"hasText": "text"}})`
-    d) JavaScript-style locator option objects of any kind.
-3. If a link name is contained inside another link name, use exact role matching:
-    a) For a link named exactly `TodoMVC`, use `page.get_by_role("link", name="TodoMVC", exact=True)`.
-    b) Do not use `page.locator("a:has-text('TodoMVC')")` when another link such as `real TodoMVC app.` also exists.
-4. For page titles or visible text containing non-ASCII punctuation, bullets, symbols, or encoded characters, do not assert exact equality. Use stable ASCII substrings instead, for example:
-    a) `title = page.title()`
-    b) `assert "React" in title`
-    c) `assert "TodoMVC" in title`
+3. Write the function:
+    a) Return exactly one test function accepting `page: Page` and `target_url: str`.
+    b) The function name must begin with `test_`.
+    c) Do not include imports, fixtures, constants, markdown, comments about the application, or `if __name__ == "__main__"`.
+    d) Do not use OpenAI, LangGraph, LangChain, credentials, payments, destructive actions, private data, or external side effects.
+    Output: one pytest function body.
 
-3. Test function design:
-    a) Return only one Python function body as content lines.
-    b) The function must accept `page: Page` and `target_url: str`.
-    c) The function name must begin with `test_`.
-    d) Do not include imports, fixtures, constants, or `if __name__ == "__main__"`.
-    e) Do not use OpenAI, LangGraph, LangChain, this application, or any LLM package.
-    f) Do not use credentials, payments, destructive actions, or private data.
-    Output: one pytest function.
+4. Design assertions:
+    a) Assert deterministic browser state: visible inspected content, input value, checked state, item count, href, class, selected value, or URL parts observed during the test.
+    b) For external links, assert stable href domain/path parts instead of clicking and asserting final navigation.
+    c) For hidden navbar links/buttons, assert existence or inspected attributes instead of visibility.
+    d) For filtered lists, hidden items may remain in the DOM; assert specific visible/hidden states instead of assuming removal.
+    e) For titles or text with punctuation or non-ASCII characters, assert stable ASCII substrings rather than exact equality.
+    f) Follow all probe warnings and use the strongest supported subset if the test case is too broad.
+    Output: deterministic assertions.
 
-4. Assertion design:
-    a) Assert visible browser behavior or stable page state.
-    b) Keep assertions realistic for the inspected DOM.
-    c) If the proposed test case is too ambitious for the available DOM evidence, make the function verify the strongest supported subset.
-    d) Do not rely on personalized content, exact Google result rankings, or region-specific links unless present in inspection evidence.
-    e) Prefer assertions that confirm the action happened, such as input value, URL changed, visible inspected text exists, or inspected link href is reachable.
-    f) For language links, settings links, footer links, or external navigation links, prefer asserting the inspected `href` value instead of clicking and assuming navigation behavior.
-    g) For voice search, image search, app menus, and other overlays, do not assert uninspected popup selectors. If no popup selector is present in the inspection, assert the inspected control is visible and enabled after click.
-    h) For submit buttons that appear more than once in the inspection, use `.first`.
-    i) For search engines or public sites that may block automation, do not require a successful results page. Prefer verifying the search input value and submit control state, or only assert that a submitted URL contains the query when that can be checked without assuming rankings/results.
-    j) Only use `.is_visible()` when the inspection shows the element is visible. If an inspected element exists but is hidden, assert count, href, value, aria-label, role, or enabled state instead.
-    k) Do not assert that a clicked menu reveals links or panels unless those revealed elements are present in the webpage inspection. If the revealed state is not inspected, assert the original control is visible/enabled and the page remains usable after click.
-    l) For external links, do not click and assert the final URL. Assert `locator.get_attribute("href")` contains the inspected target domain/path, because browsers may redirect `http` to `https` or normalize trailing slashes.
-    m) Avoid exact equality for URLs unless the exact final URL was observed by Playwright during this test. Prefer `in page.url`, parsed hostname/path checks, or href assertions.
-    n) For external link href assertions, do not require exact protocol or trailing slash. Normalize the href or assert stable parts such as domain and path. Example: `href = link.get_attribute("href") or ""; assert "todomvc.com" in href`.
-    o) For filtered lists, remember hidden items may remain in the DOM. Do not loop over every `li` and assume filtered-out items were removed. Assert visibility/hidden state for specific known items instead, using `expect(locator).to_be_visible()` and `expect(locator).to_be_hidden()`.
-    p) For TodoMVC-style filters, after clicking Active, assert the active item is visible and the completed item is hidden. After clicking Completed, assert the completed item is visible and the active item is hidden.
-    q) When checking classes, handle missing class attributes safely with `classes = locator.get_attribute("class") or ""`.
-    r) Do not assert exact equality on titles that contain special characters. Assert stable ASCII substrings instead.
-    s) Follow test case probe warnings. If the probe warns about ambiguous selectors, hidden filtered items, external links, or title encoding, avoid the risky pattern and use the suggested safer assertion.
+5. Validate:
+    a) Ensure the code is valid Python and uses valid Python Playwright APIs.
+    b) Ensure every selector and assertion traces to inspected evidence, probe evidence, or state created inside this function.
+    Output: validated function lines.
 
-5. Output rules:
-    a) Return JSON only, with no markdown, code fences, or extra text.
-    b) Use exactly this shape and no other keys:
-        {{
-            "function_name": "test_example",
-            "content_lines": [
-                "def test_example(page: Page, target_url: str) -> None:",
-                "    page.goto(target_url)",
-                "    assert page.title()"
-            ]
-        }}
+Output definition:
+Return JSON only, with no markdown, code fences, or extra text.
+Use exactly this shape and no other keys:
+{{
+    "function_name": "test_example",
+    "content_lines": [
+        "def test_example(page: Page, target_url: str) -> None:",
+        "    page.goto(target_url)",
+        "    assert page.title()"
+    ]
+}}
 
 <WEBPAGE_INSPECTION>
 {page}
@@ -108,17 +75,33 @@ Python Playwright API Contract:
 
 
 repair_prompt = """
-You are an enterprise-grade Python syntax repair agent for one generated pytest + Playwright function.
-Your task is to repair a single generated test function that failed static parsing.
-Do not redesign the test. Only fix syntax, string quoting, indentation, invalid characters, and malformed Python statements.
+You are an enterprise-grade Python syntax repair agent.
+Your task is to repair one generated pytest + Playwright function that failed static parsing.
+Do not redesign the test or add new behavior; only fix syntax, string quoting, indentation, invalid characters, and malformed Python statements.
 
-Output rules:
-    a) Return JSON only, with no markdown, code fences, or extra text.
-    b) Use exactly this shape and no other keys:
-        {{
-            "function_name": "test_example",
-            "content_lines": ["def test_example(page: Page, target_url: str) -> None:", "    assert page is not None"]
-        }}
+Think Step-by-Step as Follows:
+1. Review errors:
+    a) Read the syntax errors and the generated function.
+    b) Identify the smallest syntax-only changes needed.
+    Output: minimal repair plan.
+
+2. Repair function:
+    a) Keep the same test intent, function signature, selectors, and assertions whenever possible.
+    b) Do not add imports, fixtures, constants, markdown, or explanatory text.
+    Output: repaired function lines.
+
+3. Validate:
+    a) Ensure the repaired content is valid Python.
+    b) Ensure the output remains exactly one test function.
+    Output: validated repaired function.
+
+Output definition:
+Return JSON only, with no markdown, code fences, or extra text.
+Use exactly this shape and no other keys:
+{{
+    "function_name": "test_example",
+    "content_lines": ["def test_example(page: Page, target_url: str) -> None:", "    assert page is not None"]
+}}
 
 <SYNTAX_ERRORS>
 {syntax_errors}

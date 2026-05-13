@@ -1,7 +1,7 @@
-DEFAULT_URL = "https://demo.playwright.dev/todomvc"
+DEFAULT_URL = "https://formy-project.herokuapp.com/form"
 DEFAULT_KNOWLEDGE_BASE = (
-    "Google Search should let users find information from the web, discover search suggestions, "
-    "submit a query, and navigate to search results."
+    "The Formy complete web form should let users enter personal and job information, "
+    "choose education level, sex, years of experience, select a date, and submit the form."
 )
 DEFAULT_OUTPUT_DIR = "generated_tests"
 DEFAULT_MAX_TESTS = 10

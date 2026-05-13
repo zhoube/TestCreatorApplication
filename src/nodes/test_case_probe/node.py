@@ -24,6 +24,8 @@ def _link_domain(href: str) -> str:
 
 def _matching_links(case: TestCase, links: list[PageElement]) -> list[PageElement]:
     haystack = f"{case.name} {case.intent} {' '.join(case.steps)} {' '.join(case.assertions)}".lower()
+    if not any(word in haystack for word in ["href", "link", "logo", "navigate", "navigation", "url"]):
+        return []
     matches: list[PageElement] = []
     for link in links:
         text = link.text.strip()
@@ -37,6 +39,20 @@ def _matching_links(case: TestCase, links: list[PageElement]) -> list[PageElemen
     return matches
 
 
+def _select_options(element: PageElement) -> list[dict[str, str]]:
+    try:
+        options = json.loads(element.attributes.get("options", "[]"))
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(options, list):
+        return []
+    return [
+        {"text": str(option.get("text", "")), "value": str(option.get("value", ""))}
+        for option in options
+        if isinstance(option, dict)
+    ]
+
+
 def _input_hint(inputs: list[PageElement]) -> str | None:
     for element in inputs:
         placeholder = element.attributes.get("placeholder", "")
@@ -47,6 +63,18 @@ def _input_hint(inputs: list[PageElement]) -> str | None:
         if element.selector:
             return f'page.locator({_quote(element.selector)})'
     return None
+
+
+def _role_locator_hint(element: PageElement, default_role: str = "link") -> str | None:
+    text = element.text.strip()
+    if not text:
+        return None
+    role = element.attributes.get("role") or default_role
+    return f'page.get_by_role({_quote(role)}, name={_quote(text)}, exact=True)'
+
+
+def _radio_inputs(inputs: list[PageElement]) -> list[PageElement]:
+    return [element for element in inputs if element.attributes.get("type") == "radio"]
 
 
 def _static_hints(case: TestCase, state: GraphState) -> TestCaseProbe:
@@ -65,7 +93,15 @@ def _static_hints(case: TestCase, state: GraphState) -> TestCaseProbe:
         text = link.text.strip()
         href = link.attributes.get("href", "")
         if text:
-            probe.selector_hints.append(f'page.get_by_role("link", name={_quote(text)}, exact=True)')
+            if link.attributes.get("visible") == "false" and link.selector:
+                probe.selector_hints.append(f"page.locator({_quote(link.selector)}).first")
+                probe.warnings.append("This matched link is hidden at the inspected viewport; do not use get_by_role() or assert is_visible() for it.")
+            else:
+                role_hint = _role_locator_hint(link)
+                if role_hint:
+                    probe.selector_hints.append(role_hint)
+                if link.attributes.get("role") and link.attributes["role"] != "link":
+                    probe.warnings.append(f"This matched anchor has inspected role {_quote(link.attributes['role'])}; use that role instead of role 'link'.")
         if href:
             probe.observed_values[f"href:{text or href}"] = href
             domain = _link_domain(href)
@@ -78,6 +114,54 @@ def _static_hints(case: TestCase, state: GraphState) -> TestCaseProbe:
     input_selector = _input_hint(inspection.inputs)
     if input_selector and any(word in lower_text for word in ["add", "todo", "input", "edit", "filter", "count", "clear", "complete"]):
         probe.selector_hints.append(input_selector)
+
+    if any(word in lower_text for word in ["select", "option", "dropdown", "years"]):
+        for element in inspection.inputs:
+            options = _select_options(element)
+            if not options:
+                continue
+            if element.selector:
+                probe.selector_hints.append(f"page.locator({_quote(element.selector)})")
+            probe.observed_values[f"select_options:{element.selector or 'select'}"] = json.dumps(options)
+            selectable = [option for option in options if option["value"] and option["text"].lower() != "select an option"]
+            if selectable:
+                chosen = next((option for option in selectable if option["text"] in lower_text), selectable[min(1, len(selectable) - 1)])
+                probe.assertion_hints.append(
+                    f'select_menu.select_option({_quote(chosen["value"])}); assert select_menu.input_value() == {_quote(chosen["value"])}'
+                )
+                probe.warnings.append(
+                    f'Select option label {_quote(chosen["text"])} has value {_quote(chosen["value"])}; assert input_value() against the value, not the label.'
+                )
+            break
+
+    if "radio" in lower_text:
+        radios = _radio_inputs(inspection.inputs)
+        if radios:
+            for radio in radios[:5]:
+                selector = radio.selector or (f'[id="{radio.attributes["id"]}"]' if radio.attributes.get("id") else "")
+                if selector:
+                    probe.selector_hints.append(f"page.locator({_quote(selector)})")
+            radio_details = [
+                {
+                    "id": radio.attributes.get("id", ""),
+                    "name": radio.attributes.get("name", ""),
+                    "value": radio.attributes.get("value", ""),
+                    "selector": radio.selector,
+                }
+                for radio in radios
+            ]
+            probe.observed_values["radio_inputs"] = json.dumps(radio_details)
+            names = {radio.attributes.get("name", "") for radio in radios}
+            if "" in names or len(names) != 1:
+                probe.warnings.append(
+                    "Do not assert radio mutual exclusion unless inspected radio inputs share the same non-empty name attribute. For ungrouped radios, assert only that the clicked radio becomes checked."
+                )
+
+    for element in [*inspection.buttons, *inspection.links]:
+        label = element.text or element.attributes.get("aria-label", "")
+        if label and label.lower() in lower_text and element.attributes.get("visible") == "false" and element.selector:
+            probe.selector_hints.append(f"page.locator({_quote(element.selector)}).first")
+            probe.warnings.append(f"{label!r} is hidden at the inspected viewport; assert existence or attributes instead of visibility.")
 
     if "add" in lower_name and "todo" in lower_name:
         probe.selector_hints.append('page.locator(".todo-list li", has_text=new_todo_text).first')

@@ -16,12 +16,12 @@ def _text(value: str | None, limit: int = 240) -> str:
 def _selector_for(tag: str, attrs: dict[str, str], text: str = "") -> str:
     if attrs.get("data-testid"):
         return f"[data-testid={json.dumps(attrs['data-testid'])}]"
-    if attrs.get("aria-label"):
-        return f"{tag}[aria-label={json.dumps(attrs['aria-label'])}]"
-    if attrs.get("name"):
-        return f"{tag}[name={json.dumps(attrs['name'])}]"
     if attrs.get("id"):
         return f"[id={json.dumps(attrs['id'])}]"
+    if attrs.get("name"):
+        return f"{tag}[name={json.dumps(attrs['name'])}]"
+    if attrs.get("aria-label"):
+        return f"{tag}[aria-label={json.dumps(attrs['aria-label'])}]"
     if text and tag in {"button", "a"}:
         return f"{tag}:has-text({json.dumps(text[:50])})"
     return tag
@@ -36,6 +36,18 @@ def _attrs(locator) -> dict[str, str]:
             if value:
                 found[name] = value[:300]
     return found
+
+
+def _select_options(locator) -> list[dict[str, str]]:
+    with suppress(Exception):
+        options = locator.locator("option").evaluate_all(
+            """options => options.map(option => ({
+                text: (option.textContent || "").trim(),
+                value: option.value || ""
+            }))"""
+        )
+        return [{"text": _text(option.get("text", ""), 120), "value": _text(option.get("value", ""), 120)} for option in options]
+    return []
 
 
 def _tag_name(locator, fallback: str) -> str:
@@ -54,6 +66,11 @@ def _collect(locator, kind: str, fallback_tag: str, limit: int = 30) -> list[Pag
             item = locator.nth(index)
             tag = _tag_name(item, fallback_tag)
             attrs = _attrs(item)
+            attrs["tag"] = tag
+            with suppress(Exception):
+                attrs["visible"] = "true" if item.is_visible() else "false"
+            if tag == "select":
+                attrs["options"] = json.dumps(_select_options(item))
             label = _text(item.inner_text() if kind != "input" else attrs.get("placeholder") or attrs.get("aria-label") or attrs.get("name"))
             items.append(PageElement(kind=kind, text=label, selector=_selector_for(tag, attrs, label), attributes=attrs))
     return items
