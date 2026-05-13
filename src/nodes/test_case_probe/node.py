@@ -41,7 +41,8 @@ def _input_hint(inputs: list[PageElement]) -> str | None:
     for element in inputs:
         placeholder = element.attributes.get("placeholder", "")
         if placeholder:
-            return f'page.locator("input[placeholder={_quote(placeholder)}]")'
+            selector = f"input[placeholder={_quote(placeholder)}]"
+            return f"page.locator({_quote(selector)})"
     for element in inputs:
         if element.selector:
             return f'page.locator({_quote(element.selector)})'

@@ -14,6 +14,14 @@ ROOT = Path(__file__).resolve().parents[1]
 ENV_FILE = ROOT / ".env"
 
 
+def _safe_print(message: object = "") -> None:
+    text = str(message)
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        print(text.encode("ascii", errors="backslashreplace").decode("ascii"))
+
+
 def _env_bool(name: str, default: bool = False) -> bool:
     value = os.getenv(name)
     if value is None:
@@ -54,30 +62,30 @@ def main() -> int:
     state = generate_tests(request)
     failure = state.get("failure_report")
 
-    print("TestCreatorApplication")
-    print(f"Target URL: {request.url}")
-    print(f"Output directory: {request.output_dir}")
-    print()
+    _safe_print("TestCreatorApplication")
+    _safe_print(f"Target URL: {request.url}")
+    _safe_print(f"Output directory: {request.output_dir}")
+    _safe_print()
 
     if failure:
-        print("Generation failed:")
-        print(f"- {failure.message}")
+        _safe_print("Generation failed:")
+        _safe_print(f"- {failure.message}")
         for detail in failure.details:
-            print(f"- {detail}")
+            _safe_print(f"- {detail}")
         return 1
 
-    print("Identified test cases:")
+    _safe_print("Identified test cases:")
     for test_case in state.get("test_cases", []):
-        print(f"- [{test_case.priority}] {test_case.name}: {test_case.intent}")
+        _safe_print(f"- [{test_case.priority}] {test_case.name}: {test_case.intent}")
 
-    print()
+    _safe_print()
     if state.get("written_files"):
-        print("Written files:")
+        _safe_print("Written files:")
         for path in state["written_files"]:
-            print(f"- {path}")
+            _safe_print(f"- {path}")
         return 0
 
-    print("No files were written.")
+    _safe_print("No files were written.")
     return 1
 
 

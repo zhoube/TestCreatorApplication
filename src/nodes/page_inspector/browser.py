@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from contextlib import suppress
 
@@ -14,15 +15,15 @@ def _text(value: str | None, limit: int = 240) -> str:
 
 def _selector_for(tag: str, attrs: dict[str, str], text: str = "") -> str:
     if attrs.get("data-testid"):
-        return f"[data-testid='{attrs['data-testid']}']"
+        return f"[data-testid={json.dumps(attrs['data-testid'])}]"
     if attrs.get("aria-label"):
-        return f"{tag}[aria-label='{attrs['aria-label']}']"
+        return f"{tag}[aria-label={json.dumps(attrs['aria-label'])}]"
     if attrs.get("name"):
-        return f"{tag}[name='{attrs['name']}']"
+        return f"{tag}[name={json.dumps(attrs['name'])}]"
     if attrs.get("id"):
-        return f"#{attrs['id']}"
+        return f"[id={json.dumps(attrs['id'])}]"
     if text and tag in {"button", "a"}:
-        return f"{tag}:has-text('{text[:50]}')"
+        return f"{tag}:has-text({json.dumps(text[:50])})"
     return tag
 
 

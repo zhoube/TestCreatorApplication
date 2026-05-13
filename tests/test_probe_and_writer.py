@@ -1,6 +1,9 @@
+import ast
+
 from state import GenerationRequest, GraphState, PageElement, PageInspection, TestCase as AppTestCase
+from nodes.page_inspector.browser import _selector_for
 from nodes.test_case_probe.node import _static_hints, probe_test_cases
-from nodes.test_case_writer.node import _normalize_python_playwright
+from nodes.test_case_writer.node import _assemble_file, _normalize_python_playwright
 
 
 def test_probe_recommends_exact_role_link_for_ambiguous_text() -> None:
@@ -37,6 +40,47 @@ def test_writer_normalizes_filter_has_text() -> None:
 
     assert ".filter(has_text=new_todo_text)" in normalized
     assert "filter_has_text" not in normalized
+
+
+def test_probe_quotes_placeholder_selector_hint_as_valid_python() -> None:
+    state: GraphState = {
+        "request": GenerationRequest(url="https://demo.playwright.dev/todomvc"),
+        "inspection": PageInspection(
+            url="https://demo.playwright.dev/todomvc",
+            final_url="https://demo.playwright.dev/todomvc/#/",
+            title="TodoMVC",
+            visible_text="todos",
+            inputs=[PageElement(kind="input", attributes={"placeholder": "What needs to be done?"})],
+        ),
+    }
+    test_case = AppTestCase(
+        name="Add a new todo item",
+        intent="Verify todo creation",
+        steps=["Add a todo"],
+        assertions=["Todo is visible"],
+    )
+
+    probe = _static_hints(test_case, state)
+    selector_hint = probe.selector_hints[0]
+
+    assert selector_hint == 'page.locator("input[placeholder=\\"What needs to be done?\\"]")'
+    ast.parse(f"def generated_test(page):\n    {selector_hint}\n")
+
+
+def test_page_inspector_quotes_selector_attribute_values() -> None:
+    selector = _selector_for("input", {"aria-label": 'I"m Feeling Lucky'})
+
+    assert selector == 'input[aria-label="I\\"m Feeling Lucky"]'
+
+
+def test_assembled_generated_file_escapes_default_target_url() -> None:
+    generated = _assemble_file(
+        ["def test_ok(page: Page, target_url: str) -> None:\n    assert target_url\n"],
+        'https://example.com/?q="quoted"',
+    )
+
+    ast.parse(generated.content)
+    assert 'DEFAULT_TARGET_URL = "https://example.com/?q=\\"quoted\\""' in generated.content
 
 
 def test_probe_node_serializes_slotted_probe_for_logging(monkeypatch) -> None:

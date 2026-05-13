@@ -1,4 +1,4 @@
-DEFAULT_URL = "https://www.google.com"
+DEFAULT_URL = "https://demo.playwright.dev/todomvc"
 DEFAULT_KNOWLEDGE_BASE = (
     "Google Search should let users find information from the web, discover search suggestions, "
     "submit a query, and navigate to search results."

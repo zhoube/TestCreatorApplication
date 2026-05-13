@@ -68,14 +68,6 @@ You can also run the same file from a terminal:
 python src\main.py
 ```
 
-## Web UI
-
-```powershell
-uvicorn nodes.web.web:app --reload
-```
-
-Open `http://127.0.0.1:8000`, enter a URL and optional knowledge base, then generate tests. The UI shows the written files, discovered test cases, and generated code.
-
 ## Running Generated Tests
 
 Generated tests include the generation-time target URL as their default. You can override it with `TARGET_URL`.
@@ -95,15 +87,15 @@ python generated_tests\test_demo.py
 
 ```powershell
 pytest --basetemp=.pytest_tmp
-python -m py_compile src\main.py src\*.py
+Get-ChildItem src -Recurse -Filter *.py | ForEach-Object { python -m py_compile $_.FullName }
 ```
 
 ## Git Hygiene
 
-The repository ignores local secrets, generated tests, IDE metadata, caches, and logs:
+The repository ignores local secrets, generated test output, IDE metadata, caches, and logs. The committed sample at `generated_tests/test_demo.py` is intentionally kept for review:
 
 - `.env`
-- `generated_tests/`
+- `generated_tests/*`, except `generated_tests/test_demo.py`
 - `src/log.txt`
 - `generated_tests/log.txt`
 - `.idea/`

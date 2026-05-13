@@ -111,13 +111,14 @@ def _site_test_filename(url: str) -> str:
 
 
 def _assemble_file(functions: list[str], default_target_url: str) -> GeneratedFile:
+    target_url_literal = json.dumps(default_target_url)
     header = f'''import os
 
 import pytest
 from playwright.sync_api import Page, expect
 
 
-DEFAULT_TARGET_URL = "{default_target_url}"
+DEFAULT_TARGET_URL = {target_url_literal}
 
 
 @pytest.fixture(scope="session")
@@ -130,6 +131,9 @@ if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
 '''
     content = _clean_generated_content("\n\n".join([header, *functions, footer]))
+    errors = _syntax_errors("Generated test file", content)
+    if errors:
+        raise LLMError("; ".join(errors))
     return GeneratedFile(path=_site_test_filename(default_target_url), content=content)
 
 
@@ -157,5 +161,15 @@ def write_test_cases(state: GraphState) -> GraphState:
             ),
             "written_files": [],
         }
-    generated_file = _assemble_file(functions, state["request"].url or DEFAULT_URL)
+    try:
+        generated_file = _assemble_file(functions, state["request"].url or DEFAULT_URL)
+    except LLMError as exc:
+        return {
+            **state,
+            "failure_report": FailureReport(
+                message="Test case writing failed. Test generation stopped.",
+                details=[str(exc)],
+            ),
+            "written_files": [],
+        }
     return {**state, "generated_files": [generated_file]}
