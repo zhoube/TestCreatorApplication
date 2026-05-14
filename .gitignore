@@ -7,6 +7,7 @@ __pycache__/
 generated_tests/*
 !generated_tests/
 !generated_tests/test_demo.py
+!generated_tests/test_formy_project.py
 smoke_generated_tests/
 .env
 log.txt

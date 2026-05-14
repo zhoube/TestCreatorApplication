@@ -51,12 +51,12 @@ Then open [src/main.py](src/main.py) in PyCharm and click the green Run button. 
 
 Current defaults in `src/config.py`:
 
-- URL: `https://www.google.com`
+- URL: `https://formy-project.herokuapp.com/form`
 - max tests: `10`
 - minimum enforced by the app: `5`
 - output folder: `generated_tests`
 
-Google is intentionally a difficult target because it can vary by region, session, layout, and automation behavior. For a more deterministic demo target, change `DEFAULT_URL` to:
+The default Formy target is a deterministic demo form. For a TodoMVC-style app target, change `DEFAULT_URL` to:
 
 ```python
 DEFAULT_URL = "https://demo.playwright.dev/todomvc"
@@ -73,31 +73,18 @@ python src\main.py
 Generated tests include the generation-time target URL as their default. You can override it with `TARGET_URL`.
 
 ```powershell
-$env:TARGET_URL = "https://www.google.com"
-python generated_tests\test_google.py
+$env:TARGET_URL = "https://formy-project.herokuapp.com/form"
+python generated_tests\test_formy_project.py
 ```
 
-The repository includes [generated_tests/test_demo.py](generated_tests/test_demo.py) as a committed sample generated output for review. It targets the deterministic Playwright TodoMVC demo app and can be run directly:
+The repository includes committed sample generated outputs for review:
+
+- [generated_tests/test_formy_project.py](generated_tests/test_formy_project.py) targets the Formy complete web form.
+- [generated_tests/test_demo.py](generated_tests/test_demo.py) targets the deterministic Playwright TodoMVC demo app.
+
+They can be run directly:
 
 ```powershell
+python generated_tests\test_formy_project.py
 python generated_tests\test_demo.py
 ```
-
-## Development Checks
-
-```powershell
-pytest --basetemp=.pytest_tmp
-Get-ChildItem src -Recurse -Filter *.py | ForEach-Object { python -m py_compile $_.FullName }
-```
-
-## Git Hygiene
-
-The repository ignores local secrets, generated test output, IDE metadata, caches, and logs. The committed sample at `generated_tests/test_demo.py` is intentionally kept for review:
-
-- `.env`
-- `generated_tests/*`, except `generated_tests/test_demo.py`
-- `src/log.txt`
-- `generated_tests/log.txt`
-- `.idea/`
-- `__pycache__/`
-- `.pytest_cache/`
